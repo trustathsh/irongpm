@@ -15,7 +15,8 @@
 	<name>irongpm-rules</name>
 	<url>http://trust.f4.hs-hannover.de</url>
 	<description>
-        TBA
+		This project is a template for an example rule loader for the irongpm clients.
+		It provides an example implementation to build a .jar which can be used in the `rules` folder of the main project.
 	</description>
 	<organization>
 		<name>Trust@HsH</name>
