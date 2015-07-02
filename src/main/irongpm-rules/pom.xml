@@ -1,0 +1,150 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+	<inceptionYear>2014</inceptionYear>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+	<!-- general project information -->
+	<groupId>de.hshannover.f4.trust</groupId>
+	<artifactId>irongpm-rules</artifactId>
+	<version>0.0.1</version>
+	<packaging>jar</packaging>
+	<name>irongpm-rules</name>
+	<url>http://trust.f4.hs-hannover.de</url>
+	<description>
+        TBA
+	</description>
+	<organization>
+		<name>Trust@HsH</name>
+		<url>http://trust.f4.hs-hannover.de</url>
+	</organization>
+
+	<!-- the project license -->
+	<licenses>
+		<license>
+			<name>Apache 2</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<distribution>manual</distribution>
+			<comments>A business-friendly OSS license</comments>
+		</license>
+	</licenses>
+
+	<!-- the core developers of the project -->
+	<developers>
+		<developer>
+			<name>Trust@HsH</name>
+			<email>trust@f4-i.fh-hannover.de</email>
+		</developer>
+	</developers>
+
+	<contributors>
+		<contributor>
+			<name>Leonard Renners</name>
+		</contributor>
+	</contributors>
+
+	<build>
+		<plugins>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<version>2.10</version>
+				<configuration>
+					<propertyExpansion>headerfile=${project.basedir}/src/license/dummy/Dummy.java</propertyExpansion>
+					<configLocation>https://raw.githubusercontent.com/trustathsh/ironcommon/master/src/main/documents/trustAtHsHCheckstylePolicy.xml</configLocation>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<source>1.7</source>
+					<target>1.7</target>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<version>2.2.2</version>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>de.hshannover.f4.trust.irontemplate.Client</mainClass>
+							<addClasspath>true</addClasspath>
+						</manifest>
+						<manifestEntries>
+							<Class-Path>.</Class-Path>
+						</manifestEntries>
+					</archive>
+					<descriptors>
+						<descriptor>src/main/assembly/bin.xml</descriptor>
+						<descriptor>src/main/assembly/src.xml</descriptor>
+					</descriptors>
+				</configuration>
+				<executions>
+					<execution>
+						<id>make-assembly</id>
+						<phase>package</phase>
+						<goals>
+							<goal>single</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>license-maven-plugin</artifactId>
+				<version>1.4</version>
+				<configuration>
+					<licenseName>apache_v2</licenseName>
+					<canUpdateDescription>true</canUpdateDescription>
+					<canUpdateCopyright>true</canUpdateCopyright>
+					<addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
+					<descriptionTemplate>${basedir}/src/license/description_template.ftl</descriptionTemplate>
+					<roots>
+						<root>src/main/java</root>
+						<root>src/test/java</root>
+						<root>src/license/dummy</root>
+					</roots>
+				</configuration>
+			</plugin>
+
+		</plugins>
+		
+		<resources>
+			<resource>
+				<directory>src/main/java</directory>
+				<filtering>true</filtering>
+				<targetPath>../filtered-source/java</targetPath>
+			</resource>
+		</resources>
+
+		<sourceDirectory>target/filtered-source/java</sourceDirectory>
+	</build>
+	<dependencies>
+		<dependency>
+			<groupId>de.hshannover.f4.trust</groupId>
+			<artifactId>irongpm</artifactId>
+			<version>0.0.1</version>
+		</dependency>
+        <dependency>
+			<groupId>log4j</groupId>
+			<artifactId>log4j</artifactId>
+			<version>1.2.17</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.8.2</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+</project>
