@@ -88,8 +88,9 @@ public final class DataReciever {
 	 * Initializes the shared components.
 	 */
 	public static void init() {
-		String restUri = IronGpm.getConfig().getString("connection.url", "http://localhost:8000") + "/"
-				+ IronGpm.getConfig().getString("connection.name", "default") + "/" + RESTPOSTFIX + "/";
+		String restUri = IronGpm.getConfig().getString("visitmeta.dataservice.url", "http://localhost:8000") + "/"
+				+ IronGpm.getConfig().getString("visitmeta.dataservice.connection", "localMAPServer") + "/"
+				+ RESTPOSTFIX + "/";
 		visitmeta = new VisitmetaResource(restUri, IronGpm.getConfig().getBoolean("connection.rawxml", true));
 		gsob.registerTypeAdapter(IfmapGraphImpl.class, new IfmapGraphJsonAdapter());
 		gson = gsob.create();
