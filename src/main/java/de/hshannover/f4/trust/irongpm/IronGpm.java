@@ -100,7 +100,7 @@ public final class IronGpm extends ClassLoader {
 	 * Initializes the individual software components.
 	 */
 	private static void initComponents() {
-		String config = IronGpm.class.getClassLoader().getResource("dataservice.yml").getPath();
+		String config = IronGpm.class.getClassLoader().getResource("irongpm.yml").getPath();
 		mConfig = new Properties(config);
 		LoggingListener l = new LoggingListener();
 

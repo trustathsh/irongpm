@@ -70,7 +70,7 @@ public class Pulldozer extends Thread {
 	public Pulldozer() {
 		mGraph = new IfmapGraphImpl();
 		mIsDone = false;
-		mInterval = 1000;
+		mInterval = IronGpm.getConfig().getInt("irongpm.updateinterval", 1000);
 	}
 
 	/**

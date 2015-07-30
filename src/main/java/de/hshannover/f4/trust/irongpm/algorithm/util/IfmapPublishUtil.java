@@ -54,10 +54,13 @@ import org.xml.sax.SAXException;
 import de.hshannover.f4.trust.ifmapj.IfmapJ;
 import de.hshannover.f4.trust.ifmapj.channel.SSRC;
 import de.hshannover.f4.trust.ifmapj.config.BasicAuthConfig;
+import de.hshannover.f4.trust.ifmapj.config.CertAuthConfig;
 import de.hshannover.f4.trust.ifmapj.exception.IfmapErrorResult;
 import de.hshannover.f4.trust.ifmapj.exception.IfmapException;
 import de.hshannover.f4.trust.ifmapj.messages.PublishRequest;
 import de.hshannover.f4.trust.ifmapj.metadata.StandardIfmapMetadataFactory;
+import de.hshannover.f4.trust.ironcommon.properties.Properties;
+import de.hshannover.f4.trust.irongpm.IronGpm;
 
 /**
  * 
@@ -86,11 +89,30 @@ public final class IfmapPublishUtil {
 	 * The init method initiates the Ifmap Session and the XML Document Builder
 	 */
 	public static void init() {
-		LOGGER.info("Initialisiing Session using basic authentication");
 		try {
-			mSsrc = IfmapJ.createSsrc(new BasicAuthConfig(IfmapConfiguration.ifmapUrlBasic(), IfmapConfiguration
-					.ifmapBasicUser(), IfmapConfiguration.ifmapBasicPassword(), IfmapConfiguration.keyStorePath(),
-					IfmapConfiguration.keyStorePassword()));
+			Properties properties = IronGpm.getConfig();
+			String authMethod = properties.getString("ifmap.auth.method", "basic");
+			if (authMethod.equals("basic")) {
+				LOGGER.info("Initialisiing Session using basic authentication");
+				mSsrc = IfmapJ.createSsrc(new BasicAuthConfig(properties.getString("ifmap.auth.basic.url",
+						" https://127.0.0.1:8443"), properties.getString("ifmap.auth.basic.user", "irongpm"),
+						properties.getString("ifmap.auth.basic.password", "irongpm"), properties.getString(
+								"ifmap.truststore.path", "/irongpm.jks"), properties.getString(
+								"ifmap.truststore.password", "irongpm"), properties
+								.getBoolean("ifmap.threadsafe", true), properties.getInt(
+								"ifmap.initialconnectiontimeout", 120000)));
+			} else if (authMethod.equals("cert")) {
+				LOGGER.info("Initialisiing Session using cert based authentication");
+				mSsrc = IfmapJ.createSsrc(new CertAuthConfig(properties.getString("ifmap.auth.cert.url",
+						" https://127.0.0.1:8444"), properties.getString("ifmap.truststore.path",
+						"/keystore/irongpm.jks"), properties.getString("ifmap.truststore.password", "irongpm"),
+						properties.getString("ifmap.truststore.path", "/irongpm.jks"), properties.getString(
+								"ifmap.truststore.password", "irongpm"), properties
+								.getBoolean("ifmap.threadsafe", true), properties.getInt(
+								"ifmap.initialconnectiontimeout", 120000)));
+			} else {
+				throw new RuntimeException("Invalid Property entry for auth method type : " + authMethod);
+			}
 			mSsrc.newSession();
 		} catch (Exception e) {
 			LOGGER.error("could not connect to ifmap server", e);
