@@ -10,17 +10,19 @@
 		<fileSet>
 			<directory>${basedir}</directory>
 			<includes>
-				<include>LICENSE</include>
-				<include>NOTICE.txt</include>
-				<include>README.md</include>
+				<include>src/</include>
 				<include>pom.xml</include>
+				<include>README.md</include>
+				<include>LICENSE.txt</include>
+				<include>NOTICE.txt</include>
+				<include>CHANGELOG.txt</include>
 			</includes>
 			<outputDirectory></outputDirectory>
 		</fileSet>
 		<fileSet>
 			<directory>${basedir}/src/main/templates</directory>
 			<includes>
-				<include>ironsyslog.properties</include>
+				<include>ironsyslog.yml</include>
 				<include>rules</include>
 			</includes>
 			<outputDirectory>src/main/resources/</outputDirectory>
