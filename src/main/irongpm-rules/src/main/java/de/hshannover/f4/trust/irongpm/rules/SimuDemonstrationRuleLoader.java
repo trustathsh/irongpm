@@ -65,19 +65,30 @@ import de.hshannover.f4.trust.irongpm.algorithm.interfaces.RuleLoader;
  * @author Leonard Renners
  * 
  */
-public class BasicRuleLoader implements RuleLoader {
+public class SimuDemonstrationRuleLoader implements RuleLoader {
+
+	private static RuleAction incident = new IncidentAction();
+	private static RuleAction publishUnexpectedBehavior = new UnexpectedBehaviorAction();
+	private static RuleAction publishEvent = new PublishEventAction();
+	private static RuleAction print = new PrintRecommendationAction();
 
 	@Override
 	public List<PatternRule> loadRules() {
 		//Prepare result list
 		ArrayList<PatternRule> result = new ArrayList<>();
-		
-		//Prepare possible actions (provided by irongpm in this case)
-		RuleAction incident = new IncidentAction();
-		RuleAction publishUnexpectedBehavior = new UnexpectedBehaviorAction();
-		RuleAction publishEvent = new PublishEventAction();
-		RuleAction print = new PrintRecommendationAction();
 
+//		//Prepare Rules and add them to the ruleSet
+//		result.add(prepareExampleRule1());
+//		result.add(prepareExampleRule2());
+//		result.add(prepareExampleRule3());
+//		result.add(prepareRSARule());
+		result.add(prepareSimuRule());
+
+		//Eventually return all "loaded" rules
+		return result;
+	}
+
+	private PatternRule prepareExampleRule1() {
 		//Build first example rule (device--device-ip--ip)
 		PatternGraphImpl ruleGraph = new PatternGraphImpl();
 
@@ -90,20 +101,22 @@ public class BasicRuleLoader implements RuleLoader {
 		//Metadata
 		PatternMetadata devIpMeta = new BasicPatternMetadata("device-ip");
 		devIpMeta.addProperty("/meta:device-ip[@ifmap-cardinality]", "singleValue", false, false);
-		
+
 		ruleGraph.addVertex(dev);
 		ruleGraph.addVertex(ip);
 		PatternEdge devIpEdge = new BasicPatternEdge(dev, ip, devIpMeta);
 		ruleGraph.addEdge(dev, ip, devIpEdge);
 		ruleGraph.setPublishVertex(ip);
-		
+
 		//Build rule
 		BasicPatternRule rule;
 		rule = new BasicPatternRule(ruleGraph, "Rule 1", "Description 1", "Please check IP: $ip$");
 		rule.addAction(publishUnexpectedBehavior);
-		//Add to set
-		result.add(rule);
 
+		return rule;
+	}
+
+	private PatternRule prepareExampleRule2() {
 		//Second rule - same thing (device--device-ip-ip), but device name may not be "bronko"
 		PatternGraphImpl r2g = new PatternGraphImpl();
 
@@ -125,8 +138,11 @@ public class BasicRuleLoader implements RuleLoader {
 		r2g.setPublishVertex(ip2);
 		BasicPatternRule r2 = new BasicPatternRule(r2g, "Rule 2", "Description 2", "do something");
 		r2.addAction(incident);
-		result.add(r2);
 
+		return r2;
+	}
+
+	private PatternRule prepareExampleRule3() {
 		//3rd example: (ip--access-request-ar), with ar:name == ip:value (not making sense, but used for testing)
 		PatternGraphImpl r3g = new PatternGraphImpl();
 
@@ -138,7 +154,7 @@ public class BasicRuleLoader implements RuleLoader {
 		ar3.addProperty("/access-request[@name]", "XXX", false, true);
 
 		PatternMetadata arIpMeta3 = new BasicPatternMetadata("access-request-ip");
-		devIpMeta2.addProperty("/meta:device-ip[@ifmap-cardinality]", "singleValue", false, false);
+		arIpMeta3.addProperty("/meta:device-ip[@ifmap-cardinality]", "singleValue", false, false);
 
 		PatternEdge arIpEdge3 = new BasicPatternEdge(ip3, ar3, arIpMeta3);
 
@@ -149,8 +165,10 @@ public class BasicRuleLoader implements RuleLoader {
 		BasicPatternRule r3 = new BasicPatternRule(r3g, "Rule 3", "Description 3",
 				"some more recommendations on AR $XXX$");
 		r3.addAction(incident);
-		result.add(r3);
-
+		return r3;
+	}
+	
+	private PatternRule prepareRSARule() {
 		//Rule used for the RSA demonstration in 2015
 		//service with implementation and vulnerability
 		//user initiating an attack leveraging that vulnerability (attach detected:ref-id == vulnerability:id)
@@ -189,9 +207,75 @@ public class BasicRuleLoader implements RuleLoader {
 		rsa.addAction(print);
 		rsa.addAction(incident);
 		rsa.addAction(publishEvent);
-		result.add(rsa);
 		
-		//Eventually return all "loaded" rules
-		return result;
+		return rsa;
+	}
+	
+	private PatternRule prepareSimuRule() {
+		//Rule used for the SIMU demonstrator in 2015
+		//service with implementation and vulnerability
+		//user initiating an attack leveraging that vulnerability (attach detected:ref-id == vulnerability:id)
+		PatternGraphImpl simuGraph = new PatternGraphImpl();
+		PatternVertex service = new ExtendedPatternVertex("service");
+		service.addProperty("/service[@name]", "serviceName", false, true);
+		PatternVertex serviceIp = new ExtendedPatternVertex("ip-address");
+		PatternVertex serviceDevice = new ExtendedPatternVertex("device");
+
+		PatternVertex implementation = new ExtendedPatternVertex("implementation");
+		PatternVertex attackerIp = new BasicPatternVertex("ip-address");
+		attackerIp.addProperty("/ip-address[@value]", "attackerIp", false, true);
+		PatternVertex attackerMacAddress = new BasicPatternVertex("mac-address");
+		PatternVertex attackerAccessRequest = new BasicPatternVertex("access-request");
+		PatternVertex attackerIdentity = new BasicPatternVertex("identity");
+
+		PatternMetadata serviceImplMeta = new BasicPatternMetadata("service-implementation");
+		PatternMetadata serviceIpMeta = new BasicPatternMetadata("service-ip");
+		PatternMetadata serviceIpDeviceMeta = new BasicPatternMetadata("device-ip");
+		PatternMetadata attackDetectedMeta = new BasicPatternMetadata("attack-detected");
+		attackDetectedMeta.addProperty("/simu:attack-detected/simu:ref-id", "cve1", false, true);
+		PatternMetadata ipMac = new BasicPatternMetadata("ip-mac");
+		PatternMetadata accessRequestMac = new BasicPatternMetadata("access-request-mac");
+		PatternMetadata authAs = new BasicPatternMetadata("authenticated-as");
+		PatternMetadata eventMeta = new BasicPatternMetadata("event");
+		eventMeta.addProperty("/event/type", "cve", false, false);
+		eventMeta.addProperty("/event/vulnerability-uri", "cve1", false, true);
+
+		PatternEdge serviceImplEdge = new BasicPatternEdge(service, implementation, serviceImplMeta);
+		PatternEdge serviceIpEdge = new BasicPatternEdge(service, serviceIp, serviceIpMeta);
+		PatternEdge serviceIpDeviceEdge = new BasicPatternEdge(serviceIp, serviceDevice, serviceIpDeviceMeta);
+		PatternEdge AttackDetectedEdge = new BasicPatternEdge(attackerIp, service, attackDetectedMeta);
+		PatternEdge ipMacEdge = new BasicPatternEdge(attackerIp, attackerMacAddress, ipMac);
+		PatternEdge accessRequestMacEdge = new BasicPatternEdge(attackerAccessRequest, attackerMacAddress, accessRequestMac);
+		PatternEdge authAsEdge = new BasicPatternEdge(attackerAccessRequest, attackerIdentity, authAs);
+		
+		serviceIp.addMetadata(eventMeta);
+		
+		simuGraph.addVertex(service);
+		simuGraph.addVertex(serviceIp);
+		simuGraph.addVertex(serviceDevice);
+		simuGraph.addVertex(implementation);
+		simuGraph.addVertex(attackerIp);
+		simuGraph.addVertex(attackerMacAddress);
+		simuGraph.addVertex(attackerAccessRequest);
+		simuGraph.addVertex(attackerIdentity);
+		simuGraph.setPublishVertex(attackerIp);
+		simuGraph.addEdge(service, implementation, serviceImplEdge);
+		simuGraph.addEdge(service, serviceIp, serviceIpEdge);
+		simuGraph.addEdge(serviceIp, serviceDevice, serviceIpDeviceEdge);
+		simuGraph.addEdge(attackerIp, service, AttackDetectedEdge);
+		simuGraph.addEdge(attackerIp, attackerMacAddress, ipMacEdge);
+		simuGraph.addEdge(attackerAccessRequest, attackerMacAddress, accessRequestMacEdge);
+		simuGraph.addEdge(attackerAccessRequest, attackerIdentity, authAsEdge);
+		BasicPatternRule simu = new BasicPatternRule(
+				simuGraph,
+				"Rule 1",
+				"attack-detected on vulnerable service",
+				"Check if $serviceName$ was affected by the attack using vulnerability $cve1$ and examine quarantined attacker from $attackerIp$ !");
+		simu.addAction(print);
+		simu.addAction(incident);
+		simu.addAction(publishUnexpectedBehavior);
+		
+		return simu;
+		
 	}
 }
