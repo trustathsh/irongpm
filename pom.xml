@@ -10,7 +10,7 @@
 	<!-- general project information -->
 	<groupId>de.hshannover.f4.trust</groupId>
 	<artifactId>irongpm</artifactId>
-	<version>0.0.1</version>
+	<version>0.1.0</version>
 	<packaging>jar</packaging>
 	<name>irongpm</name>
 	<url>http://trust.f4.hs-hannover.de</url>
