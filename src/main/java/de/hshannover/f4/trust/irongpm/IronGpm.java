@@ -44,16 +44,21 @@ import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 
+import de.hshannover.f4.trust.ifmapj.exception.IfmapErrorResult;
+import de.hshannover.f4.trust.ifmapj.exception.IfmapException;
 import de.hshannover.f4.trust.ironcommon.properties.Properties;
 import de.hshannover.f4.trust.irongpm.algorithm.BasicMatchingAlgorithm;
 import de.hshannover.f4.trust.irongpm.algorithm.RuleWrapper;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternRule;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.RuleLoader;
 import de.hshannover.f4.trust.irongpm.algorithm.util.IfmapPublishUtil;
+import de.hshannover.f4.trust.irongpm.ifmap.PolicyPublisher;
 import de.hshannover.f4.trust.irongpm.listener.LoggingListener;
 import de.hshannover.f4.trust.irongpm.util.FileUtils;
 import de.hshannover.f4.trust.irongpm.util.ReflectionUtils;
@@ -62,6 +67,7 @@ import de.hshannover.f4.trust.irongpm.util.ReflectionUtils;
  * This class starts the application.
  * 
  * @author Leonard Renners
+ * @author Bastian Hellmann
  * 
  */
 public final class IronGpm extends ClassLoader {
@@ -75,6 +81,8 @@ public final class IronGpm extends ClassLoader {
 	 * Configuration class for the application.
 	 */
 	private static Properties mConfig;
+	private static boolean mIsPolicyPublisherEnabled;
+	private static PolicyPublisher mPolicyPublisher;
 
 	/**
 	 * Nope!
@@ -134,6 +142,16 @@ public final class IronGpm extends ClassLoader {
 		ArrayList<RuleLoader> loaders = new ArrayList<>();
 		List<RuleWrapper> rules = new ArrayList<>();
 		List<URL> subdirectoryJarFiles = new ArrayList<>();
+				
+		mIsPolicyPublisherEnabled = mConfig.getBoolean("irongpm.publisher.policy.enabled", false);
+		if (mIsPolicyPublisherEnabled) {
+			try {
+				mPolicyPublisher = new PolicyPublisher();
+			} catch (IfmapErrorResult | IfmapException e) {
+				LOGGER.error("Initializing IF-MAP connection failed: " + e.getMessage());
+				System.exit(1);
+			}
+		}
 
 		File ruleFolder = new File(RULES_FOLDER);
 		if (!ruleFolder.exists()) {
@@ -160,25 +178,42 @@ public final class IronGpm extends ClassLoader {
 			LOGGER.warn("Did not find any jar-files for RuleLoaders");
 		}
 
+		Map<String, List<RuleWrapper>> ruleLoaderMapping = new HashMap<>();
+		RuleWrapper rw;
+		
 		if (loaders.size() > 0) {
 			for (RuleLoader rl : loaders) {
 				List<PatternRule> loadedRules = rl.loadRules();
+				List<RuleWrapper> ruleWrappers = new ArrayList<>();
 				for (PatternRule rule : loadedRules) {
-					rules.add(new RuleWrapper(rule));
+					rw = new RuleWrapper(rule);
+					ruleWrappers.add(rw);
 					LOGGER.debug("Rule '" + rule.getName() + "' loaded successfully from: '"
 							+ rl.getClass().getSimpleName() + "'");
 				}
+				rules.addAll(ruleWrappers);
+				ruleLoaderMapping.put(rl.getClass().getSimpleName(), ruleWrappers);
 			}
 		} else {
 			LOGGER.warn("Did not find any rule loaders inside '" + RULES_FOLDER);
 		}
 		if (rules.size() > 0) {
+			if (mIsPolicyPublisherEnabled) {
+				try {
+					mPolicyPublisher.publishRules(ruleLoaderMapping);
+				} catch (IfmapErrorResult | IfmapException e) {
+					LOGGER.error("Publishing rules to IF-MAP failed: " + e.getMessage());
+					System.exit(1);
+				}
+			}
+			
 			for (RuleWrapper r : rules) {
 				while (algorithm.hasRuleId(r.getId())) {
 					long newId = r.getId() + 1;
 					r.setId(newId);
 				}
 				algorithm.addRule(r);
+				
 			}
 		} else {
 			LOGGER.warn("Did not find any rules!");
@@ -186,15 +221,15 @@ public final class IronGpm extends ClassLoader {
 	}
 
 	/**
-	 * Try to load a {@link DataserviceModule} from a Jar-File with a given {@link ClassLoader} and returns a fresh
+	 * Try to load a {@link RuleLoader} from a Jar-File with a given {@link ClassLoader} and returns a fresh
 	 * instance of that class. If loading fails, <code>null</code> is returned.
 	 * 
 	 * @param classLoader
 	 *            a {@link ClassLoader} that contains all needed native libraries and Java dependencies for loading a
-	 *            {@link DataserviceModule} from the JAR file
+	 *            {@link RuleLoader} from the JAR file
 	 * @param jarFile
-	 *            JAR file to load the {@link DataserviceModule} from
-	 * @return a instance of {@link DataserviceModule}, or null if loading fails
+	 *            JAR file to load the {@link RuleLoader} from
+	 * @return a instance of {@link RuleLoader}, or null if loading fails
 	 */
 	private static RuleLoader loadRuleLoaderFromJarFile(ClassLoader classLoader, URL jarFile) {
 		try {

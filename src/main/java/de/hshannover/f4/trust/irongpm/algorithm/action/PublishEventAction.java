@@ -48,6 +48,8 @@ import de.hshannover.f4.trust.ifmapj.messages.Requests;
 import de.hshannover.f4.trust.ifmapj.metadata.EventType;
 import de.hshannover.f4.trust.ifmapj.metadata.Significance;
 import de.hshannover.f4.trust.ifmapj.metadata.StandardIfmapMetadataFactory;
+import de.hshannover.f4.trust.ironcommon.properties.Properties;
+import de.hshannover.f4.trust.irongpm.IronGpm;
 import de.hshannover.f4.trust.irongpm.algorithm.RuleMatch;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternRule;
 import de.hshannover.f4.trust.irongpm.algorithm.util.IfmapPublishUtil;
@@ -57,12 +59,14 @@ import de.hshannover.f4.trust.irongpm.algorithm.util.ResultUtil;
  * Action Class that creates a Metadatum as the result of a rule and publishes it at the map server.
  * 
  * @author Leonard Renners
+ * @author Bastian Hellmann
  * 
  */
 public class PublishEventAction extends PublishAction {
 
 	private static final Logger LOGGER = Logger.getLogger(UnexpectedBehaviorAction.class);
 	private static StandardIfmapMetadataFactory mMf = IfmapJ.createStandardMetadataFactory();
+	private static Properties mConfig = IronGpm.getConfig();
 
 	/**
 	 * Constructor.
@@ -73,6 +77,11 @@ public class PublishEventAction extends PublishAction {
 
 	@Override
 	public void performAction(PatternRule rule, RuleMatch result) {
+		boolean isPolicyPublisherEnabled = mConfig.getBoolean("irongpm.publisher.policy.enabled", false);
+		if (isPolicyPublisherEnabled) {
+			// TODO publish connections between rule elements and sensor data ...
+		}
+		
 		if (rule.getId() == result.getRuleId()) {
 			LOGGER.debug("Performing PublishEventAction for rule: " + rule.getId());
 			if (result.getPublishVertex() == null) {
