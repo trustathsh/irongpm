@@ -39,8 +39,10 @@
 package de.hshannover.f4.trust.irongpm.ifmap;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
@@ -64,7 +66,9 @@ import de.hshannover.f4.trust.ifmapj.metadata.VendorSpecificMetadataFactory;
 import de.hshannover.f4.trust.ironcommon.properties.Properties;
 import de.hshannover.f4.trust.irongpm.IronGpm;
 import de.hshannover.f4.trust.irongpm.algorithm.RuleWrapper;
+import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternEdge;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternGraph;
+import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternMetadata;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternVertex;
 
 /**
@@ -73,26 +77,41 @@ import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternVertex;
  */
 public class PolicyPublisher {
 
-	private static final String POLICY_QUALIFIED_NAME = "policy";;
-	private static final String POLICY_METADATA_NS_URI = "http://www.trust.f4.hs-hannover.de/2015/POLICY/METADATA/1";
-	private static final String POLICY_IDENTIFIER_NS_URI = "http://www.trust.f4.hs-hannover.de/2015/POLICY/IDENTIFIER/1";
+	private static final String METADATA_NAMESPACE_PREFIX = "policy";
+	private static final String IDENTIFIER_NAMESPACE_PREFIX = "policy";
+	private static final String POLICY_METADATA_NS_URI = "http://www.trust.f4.hs-hannover.de/2016/POLICY/METADATA/1";
+	private static final String POLICY_IDENTIFIER_NS_URI = "http://www.trust.f4.hs-hannover.de/2016/POLICY/IDENTIFIER/1";
 
+	private static final String POLICY_IDENTIFIER = "policy";
+	private static final String RULE_IDENTIFIER = "rule";
+	private static final String PATTERN_VERTEX_IDENTIFIER = "patternvertex";
+
+	private static final String PATTERN_IDENTIFIER_METADATA = "patternmetadata";
+	private static final String PATTERN_EDGE_METADATA = "patternedge";
+	
 	private static final String DEVICE_TO_POLICY_METADATA_LINK = "device-policy";
 	private static final String POLICY_TO_RULE_METADATA_LINK = "policy-rule";
+	private static final String RULE_TO_FIRST_PATTERN_VERTEX_METADATA_LINK = "rule-patternvertex";
+	
+	private static final String POLICY_ADMINSTRATIVE_DOMAIN = "irongpm-policy";
+	
+	private static final String POLICY_QUALIFIED_NAME = "policy";
 	
 	private static final Logger LOGGER = Logger.getLogger(PolicyPublisher.class);
-	private static final String RULE_TO_FIRST_PATTERN_VERTEX_METADATA_LINK = null;
+
 	
 	private Properties mConfig = IronGpm.getConfig();
 	
 	private SSRC mSSRC;
 
 	private StandardIfmapMetadataFactoryImpl mMetadataFactory;
+	private VendorSpecificMetadataFactory mVendorSpecificMetadataFactory;
 
 	public PolicyPublisher() throws IfmapErrorResult, IfmapException {
 		mSSRC = init();
 		
 		mMetadataFactory = new StandardIfmapMetadataFactoryImpl();
+		mVendorSpecificMetadataFactory = IfmapJ.createVendorSpecificMetadataFactory();
 	}
 
 	private SSRC init() throws IfmapErrorResult, IfmapException {
@@ -178,10 +197,10 @@ public class PolicyPublisher {
 	}
 	
 	private Identifier createPolicyIdentifier(String ruleLoaderName) throws MarshalException {
-		String policyIdentifierDocument = "<irongpm:policy "
-				+ "administrative-domain=\"\" "
+		String policyIdentifierDocument = "<" + IDENTIFIER_NAMESPACE_PREFIX + ":" + POLICY_IDENTIFIER + " "
+				+ "administrative-domain=\"" + POLICY_ADMINSTRATIVE_DOMAIN + "\" "
 				+ "name=\"" + ruleLoaderName + "\" "
-				+ "xmlns:ns=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
+				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
 				+ "/>";
 		
 		return Identifiers.createExtendedIdentity(policyIdentifierDocument);
@@ -193,32 +212,30 @@ public class PolicyPublisher {
 		String description = rule.getDescription();
 		String recommendation = rule.getRecommendation();
 		
-		String ruleIdentifierDocument = "<irongpm:rule "
-				+ "administrative-domain=\"\" "
+		String ruleIdentifierDocument = "<" + IDENTIFIER_NAMESPACE_PREFIX + ":" + RULE_IDENTIFIER + " "
+				+ "administrative-domain=\"" + POLICY_ADMINSTRATIVE_DOMAIN + "\" "
 				+ "name=\"" + name + "\" "
 				+ "id=\"" + id + "\" "
 				+ "description=\"" + description + "\" "
 				+ "recommendation=\"" + recommendation + "\" "
-				+ "xmlns:ns=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
+				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
 				+ "/>";
 		
 		return Identifiers.createExtendedIdentity(ruleIdentifierDocument);
 	}
 
 	private Identifier createPatternVertexIdentifier(PatternVertex vertex) throws MarshalException {
-		String vertexDocument = "<irongpm:patternvertex "
-				+ "administrative-domain=\"\" "
+		String vertexDocument = "<" + IDENTIFIER_NAMESPACE_PREFIX + ":" + PATTERN_VERTEX_IDENTIFIER + " "
+				+ "administrative-domain=\"" + POLICY_ADMINSTRATIVE_DOMAIN + "\" "
 				+ "typename=\"" + vertex.getTypeName() + "\" "
 				+ "properties=\"" + vertex.getProperties().toString() + "\" "
-				+ "xmlns:ns=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
+				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
 				+ "/>";
 
 		return Identifiers.createExtendedIdentity(vertexDocument);
 	}
 
 	private List<PublishElement> createPublishElementsFromRuleWrappers(List<RuleWrapper> rules, Identifier ironGpmPolicyIdentifier) throws MarshalException {
-		LOGGER.debug("Converting rule into PublishUpdate object");
-		
 		List<PublishElement> result = new ArrayList<>();
 		
 		for (RuleWrapper rule : rules) {
@@ -243,32 +260,109 @@ public class PolicyPublisher {
 		PublishElement ruleToFirstPatternVertex = createRuleToFirstPatternVertex(ruleStartIdentifier, firstPatternVertexIdentifier);
 		result.add(ruleToFirstPatternVertex);
 		
-		// TODO
-//		PublishUpdate publishElement;
-//		Identifier id1 = null;
-//		Identifier id2 = null;
-//		Document metadata = null;
-//		for (int i = 1; i < 10; i++) {
-//			publishElement = Requests.createPublishUpdate();
-//			
-//			publishElement.setLifeTime(MetadataLifetime.session);
-//			publishElement.setIdentifier1(id1);
-//			publishElement.setIdentifier2(id2);
-//			publishElement.addMetadata(metadata);
-//			
-//			result.add(publishElement);
-//		}
+		Set<PatternVertex> seen = new HashSet<>();
+		traversePatternGraph(publishVertex, seen, pattern, result);
+				
+		return result;
+	}
+	
+	private void traversePatternGraph(PatternVertex current, Set<PatternVertex> seen, PatternGraph graph, List<PublishElement> publishElements) throws MarshalException {
+		Identifier detached;
+		Identifier detachedOther;
+		List<Document> detachedMetadata;
+		Document linkMetadata;
 		
-		VendorSpecificMetadataFactory factory = IfmapJ
-				.createVendorSpecificMetadataFactory();
-//		String vendorSpecificMetadataXml = "<custom:part-of "
-//				+ "ifmap-cardinality=\"singleValue\" "
-//				+ "xmlns:custom=\"http://www.example.com/vendor-metadata\"> "
-//				+ "</custom:part-of>";
-//		Document outgoingMetadata = factory
-//				.createMetadata(vendorSpecificMetadataXml);
+		if (!seen.contains(current)) {
+			detached = createPatternVertexIdentifier(current);
+			detachedMetadata = createPatternVertexIdentifierMetadata(current);
+			
+			publishElements.addAll(createPublishElementForAttachedMetadata(detached, detachedMetadata));
+			
+			seen.add(current);
+			
+			for (PatternEdge edge : graph.edgesOf(current)) {
+				PatternVertex edgeSource = graph.getEdgeSource(edge);
+				PatternVertex edgeTarget = graph.getEdgeTarget(edge);
+				
+				PatternVertex other = edgeTarget;
+				if (edgeSource != current) {
+					other = edgeSource;
+				}
+				
+				if (seen.contains(other)) {
+					linkMetadata = createPatternEdgeMetadata(edge);
+					detachedOther = createPatternVertexIdentifier(other);
+					publishElements.add(createPublishElementForEdge(detached, detachedOther, linkMetadata));
+				} else {
+					traversePatternGraph(other, seen, graph, publishElements);
+				}
+			}
+		}
+		
+	}
+
+	private PublishElement createPublishElementForEdge(Identifier current, Identifier other,
+			Document metadata) {
+		PublishUpdate result = Requests.createPublishUpdate();
+		result.setLifeTime(MetadataLifetime.session);
+		result.setIdentifier1(current);
+		result.setIdentifier2(other);
+		result.addMetadata(metadata);
+		return result;
+	}
+
+	private List<PublishElement> createPublishElementForAttachedMetadata(Identifier current, List<Document> detachedMetadata) {
+		List<PublishElement> result = new ArrayList<>();
+		PublishUpdate publishUpdate;
+		
+		for (Document metadata : detachedMetadata) {		
+			publishUpdate = Requests.createPublishUpdate();
+			publishUpdate.setLifeTime(MetadataLifetime.session);
+			publishUpdate.setIdentifier1(current);
+			publishUpdate.addMetadata(metadata);
+			
+			result.add(publishUpdate);
+		}
 		
 		return result;
 	}
 
+	private List<Document> createPatternVertexIdentifierMetadata(PatternVertex vertex) {
+		List<Document> result = new ArrayList<>();
+		String cardinality;
+		String vendorSpecificMetadataXml;
+		Document metadataDocument;
+		
+		for (PatternMetadata metadata : vertex.getMetadata()) {
+			cardinality = (metadata.isSingleValue() == true ? "singleValue" : "multiValue");
+			
+			vendorSpecificMetadataXml = "<" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_IDENTIFIER_METADATA + " "
+					+ "ifmap-cardinality=\"" + cardinality + "\" "
+					+ "xmlns:" + METADATA_NAMESPACE_PREFIX + "=\"" + POLICY_METADATA_NS_URI + "\">"
+					+ "<typename>" + metadata.getTypeName() + "</typename>"
+					+ "<properties>" + metadata.getProperties() + "</properties>"
+					+ "</" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_IDENTIFIER_METADATA + ">";
+			metadataDocument = mVendorSpecificMetadataFactory
+					.createMetadata(vendorSpecificMetadataXml);
+
+			result.add(metadataDocument);
+		}
+
+		return result;
+	}
+
+	private Document createPatternEdgeMetadata(PatternEdge edge) {
+		PatternMetadata metadata = edge.getMetadata();
+		String cardinality = (metadata.isSingleValue() == true ? "singleValue" : "multiValue");
+		
+		String vendorSpecificMetadataXml = "<" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_EDGE_METADATA + " "
+				+ "ifmap-cardinality=\"" + cardinality + "\" "
+				+ "xmlns:" + METADATA_NAMESPACE_PREFIX + "=\"" + POLICY_METADATA_NS_URI + "\">"
+				+ "<typename>" + metadata.getTypeName() + "</typename>"
+				+ "<properties>" + metadata.getProperties() + "</properties>"
+				+ "</" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_EDGE_METADATA + ">";
+
+		return mVendorSpecificMetadataFactory
+				.createMetadata(vendorSpecificMetadataXml);
+	}
 }
