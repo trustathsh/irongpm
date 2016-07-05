@@ -78,7 +78,7 @@ public class SimuDemonstrationRuleLoader implements RuleLoader {
 		ArrayList<PatternRule> result = new ArrayList<>();
 
 //		//Prepare Rules and add them to the ruleSet
-//		result.add(prepareExampleRule1());
+		result.add(prepareExampleRule1());
 //		result.add(prepareExampleRule2());
 //		result.add(prepareExampleRule3());
 //		result.add(prepareRSARule());
@@ -268,7 +268,7 @@ public class SimuDemonstrationRuleLoader implements RuleLoader {
 		simuGraph.addEdge(attackerAccessRequest, attackerIdentity, authAsEdge);
 		BasicPatternRule simu = new BasicPatternRule(
 				simuGraph,
-				"Rule 1",
+				"Rule SIMU",
 				"attack-detected on vulnerable service",
 				"Check if $serviceName$ was affected by the attack using vulnerability $cve1$ and examine quarantined attacker from $attackerIp$ !");
 		simu.addAction(print);

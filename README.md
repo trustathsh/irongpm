@@ -103,8 +103,13 @@ In order to build the project with Maven you need to install
 [Maven 3][4] manually or via the package manager of your
 operating system.
 
-Currently, irongpm uses the external library called `simu-entities` by DECOIT GmbH, that ist used to create incidents to the SIMU GUI from the SIMU research project. 
-This Maven artifact is not available via Github or Maven central at the moment, but propably will be in the near future. Therefore it is currently delivered in the `libs` folder and used in the Maven pom respectively. The exact use to build the program may therefore change after an official release of the entity package.
+Currently, irongpm uses the external library called `simu-entities` by DECOIT GmbH, that is used to create incidents to the SIMU GUI from the SIMU research project. 
+This Maven artifact is not available via Github or Maven central at the moment, but probably will be in the near future. Therefore it is currently delivered in the `libs` folder and used in the Maven pom respectively. The exact use to build the program may therefore change after an official release of the entity package.
+
+To install the dependency manually, navigate to the deepest subfolder within `libs` and execute:
+
+	$ mvn install:install-file -Dfile=./simu-entities-0.0.1-SNAPSHOT.jar -DgroupId=de.decoit -DartifactId=simu-entities -Dversion=0.0.1-SNAPSHOT -Dpackaging=jar
+
 
 Build irongpm
 ---------------
