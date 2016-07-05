@@ -3,9 +3,7 @@ irongpm:
   publisher:
     policy:
       enabled: true
-      # if TRUE, sends a policy-action metadata always even when no fired rules
-      nofiredrules: false
-      # is the value of the specific start identifier for the policy graph
+      # the value of the specific start identifier for the policy graph
       devicename: irongpm-policy
 
 dataservice:
@@ -20,9 +18,6 @@ ifmap:
       url: https://127.0.0.1:8443
       user: irongpm
       password: irongpm
-      policypublisher:
-        user: irongpm-publisher
-        password: irongpm-publisher
     cert: 
       url: https://127.0.0.1:8444
   truststore:

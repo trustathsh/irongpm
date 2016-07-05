@@ -42,6 +42,8 @@ import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 
 import de.hshannover.f4.trust.ifmapj.IfmapJ;
+import de.hshannover.f4.trust.ifmapj.exception.IfmapErrorResult;
+import de.hshannover.f4.trust.ifmapj.exception.IfmapException;
 import de.hshannover.f4.trust.ifmapj.identifier.Identifier;
 import de.hshannover.f4.trust.ifmapj.messages.PublishRequest;
 import de.hshannover.f4.trust.ifmapj.messages.Requests;
@@ -54,6 +56,7 @@ import de.hshannover.f4.trust.irongpm.algorithm.RuleMatch;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternRule;
 import de.hshannover.f4.trust.irongpm.algorithm.util.IfmapPublishUtil;
 import de.hshannover.f4.trust.irongpm.algorithm.util.ResultUtil;
+import de.hshannover.f4.trust.irongpm.ifmap.PolicyPublisher;
 
 /**
  * Action Class that creates a Metadatum as the result of a rule and publishes it at the map server.
@@ -77,11 +80,6 @@ public class PublishEventAction extends PublishAction {
 
 	@Override
 	public void performAction(PatternRule rule, RuleMatch result) {
-		boolean isPolicyPublisherEnabled = mConfig.getBoolean("irongpm.publisher.policy.enabled", false);
-		if (isPolicyPublisherEnabled) {
-			// TODO publish connections between rule elements and sensor data ...
-		}
-		
 		if (rule.getId() == result.getRuleId()) {
 			LOGGER.debug("Performing PublishEventAction for rule: " + rule.getId());
 			if (result.getPublishVertex() == null) {
@@ -102,6 +100,15 @@ public class PublishEventAction extends PublishAction {
 			PublishRequest update = Requests.createPublishReq();
 			update.addPublishElement(Requests.createPublishUpdate(id, updateEvent));
 			IfmapPublishUtil.publish(update);
+			
+			boolean isPolicyPublisherEnabled = mConfig.getBoolean("irongpm.publisher.policy.enabled", false);
+			if (isPolicyPublisherEnabled) {
+				try {
+					PolicyPublisher.publishAction(rule, result);
+				} catch (IfmapErrorResult | IfmapException e) {
+					LOGGER.warn("Error at publishing pattern to matched identifier-link: " + e.getMessage());
+				}
+			}
 		} else {
 			LOGGER.warn("Failed performing action since rule (" + rule.getId() + ") and result (" + result.getRuleId()
 					+ ") id's did not match!");

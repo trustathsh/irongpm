@@ -75,14 +75,12 @@ public final class IronGpm extends ClassLoader {
 	private static Pulldozer pulldozer;
 	private static BasicMatchingAlgorithm algorithm;
 	private static final Logger LOGGER = Logger.getLogger(IronGpm.class);
-	//	private static final String RULES_FOLDER = "rules";
 	private static final String RULES_FOLDER = "rules";
 	/**
 	 * Configuration class for the application.
 	 */
 	private static Properties mConfig;
 	private static boolean mIsPolicyPublisherEnabled;
-	private static PolicyPublisher mPolicyPublisher;
 
 	/**
 	 * Nope!
@@ -122,8 +120,8 @@ public final class IronGpm extends ClassLoader {
 		try {
 			initializeRules();
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.error("Could not load rules ...: " + e.getMessage());
+			System.exit(1);
 		}
 		pulldozer.addListener(algorithm);
 	}
@@ -143,16 +141,6 @@ public final class IronGpm extends ClassLoader {
 		List<RuleWrapper> rules = new ArrayList<>();
 		List<URL> subdirectoryJarFiles = new ArrayList<>();
 				
-		mIsPolicyPublisherEnabled = mConfig.getBoolean("irongpm.publisher.policy.enabled", false);
-		if (mIsPolicyPublisherEnabled) {
-			try {
-				mPolicyPublisher = new PolicyPublisher();
-			} catch (IfmapErrorResult | IfmapException e) {
-				LOGGER.error("Initializing IF-MAP connection failed: " + e.getMessage());
-				System.exit(1);
-			}
-		}
-
 		File ruleFolder = new File(RULES_FOLDER);
 		if (!ruleFolder.exists()) {
 			LOGGER.error("Rule Folder was not found!", new FileNotFoundException("Folder '" + RULES_FOLDER
@@ -198,9 +186,10 @@ public final class IronGpm extends ClassLoader {
 			LOGGER.warn("Did not find any rule loaders inside '" + RULES_FOLDER);
 		}
 		if (rules.size() > 0) {
+			mIsPolicyPublisherEnabled = mConfig.getBoolean("irongpm.publisher.policy.enabled", false);
 			if (mIsPolicyPublisherEnabled) {
 				try {
-					mPolicyPublisher.publishRules(ruleLoaderMapping);
+					PolicyPublisher.publishRules(ruleLoaderMapping);
 				} catch (IfmapErrorResult | IfmapException e) {
 					LOGGER.error("Publishing rules to IF-MAP failed: " + e.getMessage());
 					System.exit(1);

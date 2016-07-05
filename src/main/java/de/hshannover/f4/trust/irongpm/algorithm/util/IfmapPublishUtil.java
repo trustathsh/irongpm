@@ -58,7 +58,6 @@ import de.hshannover.f4.trust.ifmapj.config.CertAuthConfig;
 import de.hshannover.f4.trust.ifmapj.exception.IfmapErrorResult;
 import de.hshannover.f4.trust.ifmapj.exception.IfmapException;
 import de.hshannover.f4.trust.ifmapj.messages.PublishRequest;
-import de.hshannover.f4.trust.ifmapj.metadata.StandardIfmapMetadataFactory;
 import de.hshannover.f4.trust.ironcommon.properties.Properties;
 import de.hshannover.f4.trust.irongpm.IronGpm;
 
@@ -66,17 +65,14 @@ import de.hshannover.f4.trust.irongpm.IronGpm;
  * 
  * @author Leonard Renners
  * 
+ * 
  */
 public final class IfmapPublishUtil {
-
-	private static StandardIfmapMetadataFactory mMf = IfmapJ.createStandardMetadataFactory();
 
 	private static final Logger LOGGER = Logger.getLogger(IfmapPublishUtil.class);
 
 	private static SSRC mSsrc;
 	private static DocumentBuilder mDocumentBuilder;
-
-	private static final String XMLNS = "http://simu-project.de/XMLSchema/1";
 
 	/**
 	 * Dead constructor for code convention -> final class because utility class
@@ -160,11 +156,9 @@ public final class IfmapPublishUtil {
 			InputSource input = new InputSource(reader);
 			return mDocumentBuilder.parse(input);
 		} catch (SAXException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.error("Error while parsing: " + e.getMessage());
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			LOGGER.error("Error while reading input: " + e.getMessage());
 		}
 		return null;
 

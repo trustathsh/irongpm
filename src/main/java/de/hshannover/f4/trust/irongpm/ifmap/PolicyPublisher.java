@@ -48,13 +48,13 @@ import org.apache.log4j.Logger;
 import org.w3c.dom.Document;
 
 import de.hshannover.f4.trust.ifmapj.IfmapJ;
-import de.hshannover.f4.trust.ifmapj.channel.SSRC;
-import de.hshannover.f4.trust.ifmapj.config.BasicAuthConfig;
+import de.hshannover.f4.trust.ifmapj.binding.IfmapStrings;
 import de.hshannover.f4.trust.ifmapj.exception.IfmapErrorResult;
 import de.hshannover.f4.trust.ifmapj.exception.IfmapException;
 import de.hshannover.f4.trust.ifmapj.exception.MarshalException;
 import de.hshannover.f4.trust.ifmapj.identifier.Identifier;
 import de.hshannover.f4.trust.ifmapj.identifier.Identifiers;
+import de.hshannover.f4.trust.ifmapj.identifier.IdentityType;
 import de.hshannover.f4.trust.ifmapj.messages.MetadataLifetime;
 import de.hshannover.f4.trust.ifmapj.messages.PublishElement;
 import de.hshannover.f4.trust.ifmapj.messages.PublishRequest;
@@ -65,11 +65,16 @@ import de.hshannover.f4.trust.ifmapj.metadata.StandardIfmapMetadataFactoryImpl;
 import de.hshannover.f4.trust.ifmapj.metadata.VendorSpecificMetadataFactory;
 import de.hshannover.f4.trust.ironcommon.properties.Properties;
 import de.hshannover.f4.trust.irongpm.IronGpm;
+import de.hshannover.f4.trust.irongpm.algorithm.RuleMatch;
 import de.hshannover.f4.trust.irongpm.algorithm.RuleWrapper;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternEdge;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternGraph;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternMetadata;
+import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternPropable;
+import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternRule;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternVertex;
+import de.hshannover.f4.trust.irongpm.algorithm.util.IfmapPublishUtil;
+import de.hshannover.f4.trust.irongpm.ifmap.interfaces.IfmapVertex;
 
 /**
  * @author Bastian Hellmann
@@ -87,11 +92,12 @@ public class PolicyPublisher {
 	private static final String PATTERN_VERTEX_IDENTIFIER = "patternvertex";
 
 	private static final String PATTERN_IDENTIFIER_METADATA = "patternmetadata";
-	private static final String PATTERN_EDGE_METADATA = "patternedge";
+	private static final String PATTERN_EDGE_LINK = "patternedge";
 	
-	private static final String DEVICE_TO_POLICY_METADATA_LINK = "device-policy";
-	private static final String POLICY_TO_RULE_METADATA_LINK = "policy-rule";
-	private static final String RULE_TO_FIRST_PATTERN_VERTEX_METADATA_LINK = "rule-patternvertex";
+	private static final String DEVICE_TO_POLICY_LINK = "device-policy";
+	private static final String POLICY_TO_RULE_LINK = "policy-rule";
+	private static final String RULE_TO_FIRST_PATTERN_VERTEX_LINK = "rule-pattern";
+	private static final String PUBLISH_VERTEX_TO_MATCHED_IDENTIFIER_LINK = "pattern-matched";
 	
 	private static final String POLICY_ADMINSTRATIVE_DOMAIN = "irongpm-policy";
 	
@@ -99,41 +105,18 @@ public class PolicyPublisher {
 	
 	private static final Logger LOGGER = Logger.getLogger(PolicyPublisher.class);
 
+	private static Properties mConfig = IronGpm.getConfig();
 	
-	private Properties mConfig = IronGpm.getConfig();
-	
-	private SSRC mSSRC;
+	private static StandardIfmapMetadataFactoryImpl mMetadataFactory = new StandardIfmapMetadataFactoryImpl();
+	private static VendorSpecificMetadataFactory mVendorSpecificMetadataFactory = IfmapJ.createVendorSpecificMetadataFactory();
 
-	private StandardIfmapMetadataFactoryImpl mMetadataFactory;
-	private VendorSpecificMetadataFactory mVendorSpecificMetadataFactory;
-
-	public PolicyPublisher() throws IfmapErrorResult, IfmapException {
-		mSSRC = init();
-		
-		mMetadataFactory = new StandardIfmapMetadataFactoryImpl();
-		mVendorSpecificMetadataFactory = IfmapJ.createVendorSpecificMetadataFactory();
-	}
-
-	private SSRC init() throws IfmapErrorResult, IfmapException {
-		String url = mConfig.getString("ifmap.auth.basic.url", "https://127.0.0.1:8443");
-		String username = mConfig.getString("ifmap.auth.basic.policypublisher.user", "irongpm-publisher");
-		String password = mConfig.getString("ifmap.auth.basic.policypublisher.password", "irongpm-publisher");
-		String trustStorePath = mConfig.getString("ifmap.truststore.path", "/irongpm.jks");
-		String trustStorePassword = mConfig.getString("ifmap.truststore.password", "irongpm");
-		boolean threadSafe = mConfig.getBoolean("ifmap.threadsafe", true);
-		int initialConnectionTimeout = mConfig.getInt("ifmap.auth.initialconnectiontimeout", 120000);
-		
-		BasicAuthConfig config = new BasicAuthConfig(url, username, password, trustStorePath, trustStorePassword, threadSafe, initialConnectionTimeout);
-		LOGGER.debug(config);
-
-		mSSRC = IfmapJ.createSsrc(config);
-		mSSRC.newSession();
-		LOGGER.info("IF-MAP connection established successfully");
-		
-		return mSSRC;
-	}
-	
-	public void publishRules(Map<String, List<RuleWrapper>> ruleLoaderMapping) throws IfmapErrorResult, IfmapException {
+	/**
+	 * @param ruleLoaderMapping
+	 * @throws IfmapErrorResult
+	 * @throws IfmapException
+	 */
+	public static void publishRules(Map<String, List<RuleWrapper>> ruleLoaderMapping) throws IfmapErrorResult, IfmapException {
+		LOGGER.trace("Method publishRules(Map<String, List<RuleWrapper>> ruleLoaderMapping) called");
 		LOGGER.info("Trying to publish irongpm rules.");
 		
 		PublishRequest request = Requests.createPublishReq();
@@ -154,59 +137,109 @@ public class PolicyPublisher {
 			}
 		}
 		
-		mSSRC.publish(request);
+		IfmapPublishUtil.publish(request);
 	}
 
-	private PublishElement createDeviceToPolicy(Identifier startDeviceIdentifier, Identifier ironGpmPolicyIdentifier) {
+	/**
+	 * @param rule
+	 * @param match
+	 * @throws IfmapErrorResult
+	 * @throws IfmapException
+	 */
+	public static void publishAction(PatternRule rule, RuleMatch match) throws IfmapErrorResult, IfmapException {
+		LOGGER.trace("Method publishAction(PatternRule rule, RuleMatch match) called");
+		LOGGER.info("Trying to publish irongpm action.");
+		
+		Identifier matchedIdentifier = createMatchedIdentifier(match);
+		if (matchedIdentifier == null) {
+			LOGGER.warn("Could not create matched identifier for rule: " + rule.getId());
+			return;
+		}
+		
+		Identifier publishVertexIdentifier = createPatternVertexIdentifier(rule.getPattern().getPublishVertex(), rule.getId());
+		
+		PublishRequest request = Requests.createPublishReq();
+		PublishUpdate publishUpdate = Requests.createPublishUpdate();
+		publishUpdate.setIdentifier1(publishVertexIdentifier);
+		publishUpdate.setIdentifier2(matchedIdentifier);
+		publishUpdate.setLifeTime(MetadataLifetime.session);
+		
+		String timestamp = match.getResultGraph().getLastUpdated().toString();
+		String vendorSpecificMetadataXml = "<" + METADATA_NAMESPACE_PREFIX + ":" + PUBLISH_VERTEX_TO_MATCHED_IDENTIFIER_LINK + " "
+				+ "ifmap-cardinality=\"singleValue\" "
+				+ "xmlns:" + METADATA_NAMESPACE_PREFIX + "=\"" + POLICY_METADATA_NS_URI + "\">"
+				+ "<timestamp>" + timestamp + "</timestamp>"
+				+ "</" + METADATA_NAMESPACE_PREFIX + ":" + PUBLISH_VERTEX_TO_MATCHED_IDENTIFIER_LINK + ">";
+	
+		Document publishVertexToMatchedIdentifierLinkMetadata = mVendorSpecificMetadataFactory
+				.createMetadata(vendorSpecificMetadataXml);
+		publishUpdate.addMetadata(publishVertexToMatchedIdentifierLinkMetadata);
+	
+		request.addPublishElement(publishUpdate);
+	
+		IfmapPublishUtil.publish(request);
+	}
+
+	private static PublishElement createDeviceToPolicy(Identifier startDeviceIdentifier, Identifier ironGpmPolicyIdentifier) {
+		LOGGER.trace("Method createDeviceToPolicy(Identifier startDeviceIdentifier, Identifier ironGpmPolicyIdentifier) called");
+		
 		PublishUpdate result = Requests.createPublishUpdate();
 		result.setLifeTime(MetadataLifetime.session);
 		result.setIdentifier1(startDeviceIdentifier);
 		result.setIdentifier2(ironGpmPolicyIdentifier);
 		
-		Document deviceToPolicyLinkMetadata = mMetadataFactory.create(DEVICE_TO_POLICY_METADATA_LINK, POLICY_QUALIFIED_NAME,
+		Document deviceToPolicyLinkMetadata = mMetadataFactory.create(DEVICE_TO_POLICY_LINK, POLICY_QUALIFIED_NAME,
 				POLICY_METADATA_NS_URI, Cardinality.singleValue);
 		result.addMetadata(deviceToPolicyLinkMetadata);
 		
 		return result;
 	}
 
-	private PublishElement createPolicyToRule(Identifier ironGpmPolicyIdentifier, Identifier ruleStartIdentifier) {
+	private static PublishElement createPolicyToRule(Identifier ironGpmPolicyIdentifier, Identifier ruleStartIdentifier) {
+		LOGGER.trace("Method createPolicyToRule(Identifier ironGpmPolicyIdentifier, Identifier ruleStartIdentifier) called");
+		
 		PublishUpdate result = Requests.createPublishUpdate();
 		result.setLifeTime(MetadataLifetime.session);
 		result.setIdentifier1(ironGpmPolicyIdentifier);
 		result.setIdentifier2(ruleStartIdentifier);
 		
-		Document policyToRuleLinkMetadata = mMetadataFactory.create(POLICY_TO_RULE_METADATA_LINK, POLICY_QUALIFIED_NAME,
+		Document policyToRuleLinkMetadata = mMetadataFactory.create(POLICY_TO_RULE_LINK, POLICY_QUALIFIED_NAME,
 				POLICY_METADATA_NS_URI, Cardinality.singleValue);
 		result.addMetadata(policyToRuleLinkMetadata);
 		
 		return result;
 	}
 
-	private PublishElement createRuleToFirstPatternVertex(Identifier ruleStartIdentifier, Identifier firstPatternVertexIdentifier) {
+	private static PublishElement createRuleToFirstPatternVertex(Identifier ruleStartIdentifier, Identifier firstPatternVertexIdentifier) {
+		LOGGER.trace("Method createRuleToFirstPatternVertex(Identifier ruleStartIdentifier, Identifier firstPatternVertexIdentifier) called");
+		
 		PublishUpdate result = Requests.createPublishUpdate();
 		result.setIdentifier1(ruleStartIdentifier);
 		result.setIdentifier2(firstPatternVertexIdentifier);
 		result.setLifeTime(MetadataLifetime.session);
 		
-		Document ruleToFirstPatternVertexLinkMetadata = mMetadataFactory.create(RULE_TO_FIRST_PATTERN_VERTEX_METADATA_LINK, POLICY_QUALIFIED_NAME,
+		Document ruleToFirstPatternVertexLinkMetadata = mMetadataFactory.create(RULE_TO_FIRST_PATTERN_VERTEX_LINK, POLICY_QUALIFIED_NAME,
 				POLICY_METADATA_NS_URI, Cardinality.singleValue);		
 		result.addMetadata(ruleToFirstPatternVertexLinkMetadata);
 		
 		return result;
 	}
 	
-	private Identifier createPolicyIdentifier(String ruleLoaderName) throws MarshalException {
+	private static Identifier createPolicyIdentifier(String ruleLoaderName) throws MarshalException {
+		LOGGER.trace("Method createPolicyIdentifier(String ruleLoaderName) called");
+		
 		String policyIdentifierDocument = "<" + IDENTIFIER_NAMESPACE_PREFIX + ":" + POLICY_IDENTIFIER + " "
 				+ "administrative-domain=\"" + POLICY_ADMINSTRATIVE_DOMAIN + "\" "
-				+ "name=\"" + ruleLoaderName + "\" "
-				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
-				+ "/>";
+				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" >"
+				+ "<name>" + ruleLoaderName + "</name>"
+				+ "</" + IDENTIFIER_NAMESPACE_PREFIX + ":" + POLICY_IDENTIFIER + ">";
 		
 		return Identifiers.createExtendedIdentity(policyIdentifierDocument);
 	}
 
-	private Identifier createRuleStartIdentifier(RuleWrapper rule) throws MarshalException {
+	private static Identifier createRuleStartIdentifier(RuleWrapper rule) throws MarshalException {
+		LOGGER.trace("Method createRuleStartIdentifier(RuleWrapper rule) called");
+		
 		String name = rule.getName();
 		long id = rule.getId();
 		String description = rule.getDescription();
@@ -214,28 +247,73 @@ public class PolicyPublisher {
 		
 		String ruleIdentifierDocument = "<" + IDENTIFIER_NAMESPACE_PREFIX + ":" + RULE_IDENTIFIER + " "
 				+ "administrative-domain=\"" + POLICY_ADMINSTRATIVE_DOMAIN + "\" "
-				+ "name=\"" + name + "\" "
-				+ "id=\"" + id + "\" "
-				+ "description=\"" + description + "\" "
-				+ "recommendation=\"" + recommendation + "\" "
-				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
-				+ "/>";
+				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" >"
+				+ "<name>" + name + "</name>"
+				+ "<id>" + id + "</id>"
+				+ "<description>" + description + "</description>"
+				+ "<recommendation>" + recommendation + "</recommendation>"
+				+ "</" + IDENTIFIER_NAMESPACE_PREFIX + ":" + RULE_IDENTIFIER + ">";
 		
 		return Identifiers.createExtendedIdentity(ruleIdentifierDocument);
 	}
 
-	private Identifier createPatternVertexIdentifier(PatternVertex vertex) throws MarshalException {
+	private static Identifier createPatternVertexIdentifier(PatternVertex vertex, long ruleId) throws MarshalException {
+		LOGGER.trace("Method createPatternVertexIdentifier(PatternVertex vertex, long ruleId) called");
+		
 		String vertexDocument = "<" + IDENTIFIER_NAMESPACE_PREFIX + ":" + PATTERN_VERTEX_IDENTIFIER + " "
-				+ "administrative-domain=\"" + POLICY_ADMINSTRATIVE_DOMAIN + "\" "
-				+ "typename=\"" + vertex.getTypeName() + "\" "
-				+ "properties=\"" + vertex.getProperties().toString() + "\" "
-				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" "
-				+ "/>";
+				+ "administrative-domain=\"" + POLICY_ADMINSTRATIVE_DOMAIN + ":" + ruleId + "\" "
+				+ "xmlns:" + IDENTIFIER_NAMESPACE_PREFIX + "=\"" + POLICY_IDENTIFIER_NS_URI + "\" >"
+				+ "<typename>" + vertex.getTypeName() + "</typename>"
+				+ "<properties>" + createPropertyString(vertex) + "</properties>"
+				+ "</" + IDENTIFIER_NAMESPACE_PREFIX + ":" + PATTERN_VERTEX_IDENTIFIER + ">";
 
 		return Identifiers.createExtendedIdentity(vertexDocument);
 	}
 
-	private List<PublishElement> createPublishElementsFromRuleWrappers(List<RuleWrapper> rules, Identifier ironGpmPolicyIdentifier) throws MarshalException {
+	private static Identifier createMatchedIdentifier(RuleMatch match) throws MarshalException {
+		LOGGER.trace("Method createMatchedIdentifier(RuleMatch match) called");
+		
+		Identifier result = null;
+		IfmapVertex matchedVertex = match.getPublishVertex();
+		
+		String typeName = matchedVertex.getTypeName();
+		String rawData = matchedVertex.getRawData();
+		
+		LOGGER.trace("MatchedVertex (" + typeName + "): " + rawData);
+		
+		// TODO will not support ALL possible identifier types ... e.g. IPv6
+		switch (typeName) {
+		case IfmapStrings.ACCESS_REQUEST_EL_NAME:
+			result = Identifiers.createAr(matchedVertex.valueFor("/access-request[@name]"));
+			break;
+		case IfmapStrings.DEVICE_EL_NAME:
+			result = Identifiers.createDev(matchedVertex.valueFor("/device/name"));
+			break;
+		case IfmapStrings.IP_ADDRESS_EL_NAME:
+			result = Identifiers.createIp4(matchedVertex.valueFor("/ip-address[@value]"));
+			break;
+		case IfmapStrings.MAC_ADDRESS_EL_NAME:
+			result = Identifiers.createMac(matchedVertex.valueFor("/mac-address[@value]"));
+			break;
+		case IfmapStrings.IDENTITY_EL_NAME:
+			if (matchedVertex.isExtendedIdentifier()) {
+				result = Identifiers.createExtendedIdentity(rawData);
+			} else {
+				String name = matchedVertex.valueFor("/identity[@name]");
+				String type = matchedVertex.valueFor("/identity[@type]");
+				result = Identifiers.createIdentity(IdentityType.valueOf(type), name);
+			}
+			break;
+		default:
+			break;
+		}
+		
+		return result;
+	}
+
+	private static List<PublishElement> createPublishElementsFromRuleWrappers(List<RuleWrapper> rules, Identifier ironGpmPolicyIdentifier) throws MarshalException {
+		LOGGER.trace("Method createPublishElementsFromRuleWrappers(List<RuleWrapper> rules, Identifier ironGpmPolicyIdentifier) called");
+		
 		List<PublishElement> result = new ArrayList<>();
 		
 		for (RuleWrapper rule : rules) {
@@ -249,31 +327,35 @@ public class PolicyPublisher {
 		return result;
 	}
 
-	private List<PublishElement> createRuleSubgraph(Identifier ruleStartIdentifier, RuleWrapper rule) throws MarshalException {
+	private static List<PublishElement> createRuleSubgraph(Identifier ruleStartIdentifier, RuleWrapper rule) throws MarshalException {
+		LOGGER.trace("Method createRuleSubgraph(Identifier ruleStartIdentifier, RuleWrapper rule) called");
+		
 		List<PublishElement> result = new ArrayList<>();
 
 		PatternGraph pattern = rule.getPattern();
 		PatternVertex publishVertex = pattern.getPublishVertex();
 		
-		Identifier firstPatternVertexIdentifier = createPatternVertexIdentifier(publishVertex);
+		Identifier firstPatternVertexIdentifier = createPatternVertexIdentifier(publishVertex, rule.getId());
 		
 		PublishElement ruleToFirstPatternVertex = createRuleToFirstPatternVertex(ruleStartIdentifier, firstPatternVertexIdentifier);
 		result.add(ruleToFirstPatternVertex);
 		
 		Set<PatternVertex> seen = new HashSet<>();
-		traversePatternGraph(publishVertex, seen, pattern, result);
+		traversePatternGraph(publishVertex, seen, pattern, result, rule.getId());
 				
 		return result;
 	}
 	
-	private void traversePatternGraph(PatternVertex current, Set<PatternVertex> seen, PatternGraph graph, List<PublishElement> publishElements) throws MarshalException {
+	private static void traversePatternGraph(PatternVertex current, Set<PatternVertex> seen, PatternGraph graph, List<PublishElement> publishElements, long ruleId) throws MarshalException {
+		LOGGER.trace("Method traversePatternGraph(PatternVertex current, Set<PatternVertex> seen, PatternGraph graph, List<PublishElement> publishElements, long ruleId) called");
+		
 		Identifier detached;
 		Identifier detachedOther;
 		List<Document> detachedMetadata;
 		Document linkMetadata;
 		
 		if (!seen.contains(current)) {
-			detached = createPatternVertexIdentifier(current);
+			detached = createPatternVertexIdentifier(current, ruleId);
 			detachedMetadata = createPatternVertexIdentifierMetadata(current);
 			
 			publishElements.addAll(createPublishElementForAttachedMetadata(detached, detachedMetadata));
@@ -291,18 +373,20 @@ public class PolicyPublisher {
 				
 				if (seen.contains(other)) {
 					linkMetadata = createPatternEdgeMetadata(edge);
-					detachedOther = createPatternVertexIdentifier(other);
+					detachedOther = createPatternVertexIdentifier(other, ruleId);
 					publishElements.add(createPublishElementForEdge(detached, detachedOther, linkMetadata));
 				} else {
-					traversePatternGraph(other, seen, graph, publishElements);
+					traversePatternGraph(other, seen, graph, publishElements, ruleId);
 				}
 			}
 		}
 		
 	}
 
-	private PublishElement createPublishElementForEdge(Identifier current, Identifier other,
+	private static PublishElement createPublishElementForEdge(Identifier current, Identifier other,
 			Document metadata) {
+		LOGGER.trace("Method createPublishElementForEdge(Identifier current, Identifier other, Document metadata) called");
+		
 		PublishUpdate result = Requests.createPublishUpdate();
 		result.setLifeTime(MetadataLifetime.session);
 		result.setIdentifier1(current);
@@ -311,15 +395,16 @@ public class PolicyPublisher {
 		return result;
 	}
 
-	private List<PublishElement> createPublishElementForAttachedMetadata(Identifier current, List<Document> detachedMetadata) {
-		List<PublishElement> result = new ArrayList<>();
-		PublishUpdate publishUpdate;
+	private static List<PublishElement> createPublishElementForAttachedMetadata(Identifier current, List<Document> detachedMetadata) {
+		LOGGER.trace("Method createPublishElementForAttachedMetadata(Identifier current, List<Document> detachedMetadata) called");
 		
-		for (Document metadata : detachedMetadata) {		
-			publishUpdate = Requests.createPublishUpdate();
-			publishUpdate.setLifeTime(MetadataLifetime.session);
+		List<PublishElement> result = new ArrayList<>();
+		
+		for (Document doc : detachedMetadata) {
+			PublishUpdate publishUpdate = Requests.createPublishUpdate();
 			publishUpdate.setIdentifier1(current);
-			publishUpdate.addMetadata(metadata);
+			publishUpdate.setLifeTime(MetadataLifetime.session);
+			publishUpdate.addMetadata(doc);
 			
 			result.add(publishUpdate);
 		}
@@ -327,7 +412,9 @@ public class PolicyPublisher {
 		return result;
 	}
 
-	private List<Document> createPatternVertexIdentifierMetadata(PatternVertex vertex) {
+	private static List<Document> createPatternVertexIdentifierMetadata(PatternVertex vertex) {
+		LOGGER.trace("Method createPatternVertexIdentifierMetadata(PatternVertex vertex) called");
+		
 		List<Document> result = new ArrayList<>();
 		String cardinality;
 		String vendorSpecificMetadataXml;
@@ -340,7 +427,7 @@ public class PolicyPublisher {
 					+ "ifmap-cardinality=\"" + cardinality + "\" "
 					+ "xmlns:" + METADATA_NAMESPACE_PREFIX + "=\"" + POLICY_METADATA_NS_URI + "\">"
 					+ "<typename>" + metadata.getTypeName() + "</typename>"
-					+ "<properties>" + metadata.getProperties() + "</properties>"
+					+ "<properties>" + createPropertyString(metadata) + "</properties>"
 					+ "</" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_IDENTIFIER_METADATA + ">";
 			metadataDocument = mVendorSpecificMetadataFactory
 					.createMetadata(vendorSpecificMetadataXml);
@@ -351,18 +438,44 @@ public class PolicyPublisher {
 		return result;
 	}
 
-	private Document createPatternEdgeMetadata(PatternEdge edge) {
+	private static Document createPatternEdgeMetadata(PatternEdge edge) {
+		LOGGER.trace("Method createPatternEdgeMetadata(PatternEdge edge)called");
+		
 		PatternMetadata metadata = edge.getMetadata();
 		String cardinality = (metadata.isSingleValue() == true ? "singleValue" : "multiValue");
 		
-		String vendorSpecificMetadataXml = "<" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_EDGE_METADATA + " "
+		String vendorSpecificMetadataXml = "<" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_EDGE_LINK + " "
 				+ "ifmap-cardinality=\"" + cardinality + "\" "
 				+ "xmlns:" + METADATA_NAMESPACE_PREFIX + "=\"" + POLICY_METADATA_NS_URI + "\">"
 				+ "<typename>" + metadata.getTypeName() + "</typename>"
-				+ "<properties>" + metadata.getProperties() + "</properties>"
-				+ "</" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_EDGE_METADATA + ">";
+				+ "<properties>" + createPropertyString(metadata) + "</properties>"
+				+ "</" + METADATA_NAMESPACE_PREFIX + ":" + PATTERN_EDGE_LINK + ">";
 
 		return mVendorSpecificMetadataFactory
 				.createMetadata(vendorSpecificMetadataXml);
+	}
+	
+	private static String createPropertyString(PatternPropable propable) {
+		LOGGER.trace("Method createPropertyString(PatternPropable propable) called");
+		
+		StringBuilder properties = new StringBuilder();
+		List<String> keys = propable.getProperties();
+		String key;
+		if (keys.size() == 0) {
+			return "[]";
+		} else {
+			for (int i = 0; i < keys.size(); i++) {
+				key = keys.get(i);
+				properties.append("[");
+				properties.append(key);
+				properties.append(": ");
+				properties.append(propable.valueFor(key));
+				properties.append("]");
+				if (i < (keys.size() - 1)) {
+					properties.append(",");
+				}
+			}
+			return properties.toString();
+		}
 	}
 }
