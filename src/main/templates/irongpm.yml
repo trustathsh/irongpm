@@ -1,6 +1,9 @@
 irongpm:
   updateinterval: 1000
   publisher:
+    selfpublish:
+      enabled: true
+      devicename: irongpm
     policy:
       enabled: true
       # the value of the specific start identifier for the policy graph
