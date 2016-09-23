@@ -84,9 +84,8 @@ public class PolicyPublisher {
 
 	private static final String METADATA_NAMESPACE_PREFIX = "policy";
 	private static final String IDENTIFIER_NAMESPACE_PREFIX = "policy";
-	private static final String POLICY_METADATA_NS_URI = "http://www.trust.f4.hs-hannover.de/2016/POLICY/METADATA/1";
-	private static final String POLICY_IDENTIFIER_NS_URI =
-			"http://www.trust.f4.hs-hannover.de/2016/POLICY/IDENTIFIER/1";
+	private static final String POLICY_METADATA_NS_URI = "http://www.trust.f4.hs-hannover.de/2016/POLICY/IRONGPM/METADATA/1";
+	private static final String POLICY_IDENTIFIER_NS_URI = "http://www.trust.f4.hs-hannover.de/2016/POLICY/IRONGPM/IDENTIFIER/1";
 
 	private static final String POLICY_IDENTIFIER = "policy";
 	private static final String RULE_IDENTIFIER = "rule";
