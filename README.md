@@ -141,7 +141,7 @@ Running
 Feedback
 =====
 If you have any questions, problems or comments, please contact
-	trust@f4-i.fh-hannover.de
+	f4-i-trust@lists.hs-hannover.de
 
 
 LICENSE
