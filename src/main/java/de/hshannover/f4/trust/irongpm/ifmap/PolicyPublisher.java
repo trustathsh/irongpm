@@ -89,10 +89,10 @@ public class PolicyPublisher {
 
 	private static final String POLICY_IDENTIFIER = "policy";
 	private static final String RULE_IDENTIFIER = "rule";
-	private static final String PATTERN_VERTEX_IDENTIFIER = "patternvertex";
+	private static final String PATTERN_VERTEX_IDENTIFIER = "pattern-vertex";
 
-	private static final String PATTERN_IDENTIFIER_METADATA = "patternmetadata";
-	private static final String PATTERN_EDGE_LINK = "patternedge";
+	private static final String PATTERN_IDENTIFIER_METADATA = "pattern-metadata";
+	private static final String PATTERN_EDGE_LINK = "pattern-edge";
 
 	private static final String DEVICE_TO_POLICY_LINK = "device-policy";
 	private static final String POLICY_TO_RULE_LINK = "policy-rule";
@@ -156,7 +156,7 @@ public class PolicyPublisher {
 	 */
 	public static void publishAction(PatternRule rule, RuleMatch match) throws IfmapErrorResult, IfmapException {
 		LOGGER.trace("Method publishAction(PatternRule rule, RuleMatch match) called");
-		LOGGER.info("Trying to publish irongpm action.");
+		LOGGER.info("Trying to publish irongpm action for rule " + rule.getId() + ".");
 
 		Identifier matchedIdentifier = createMatchedIdentifier(match);
 		if (matchedIdentifier == null) {
