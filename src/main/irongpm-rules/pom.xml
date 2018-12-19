@@ -130,11 +130,20 @@
 
 		<sourceDirectory>target/filtered-source/java</sourceDirectory>
 	</build>
+	
+	<repositories>
+		<repository>
+			<id>LibRepo</id>
+			<name>LibRepo</name>
+			<url>file://${project.basedir}/libs</url>
+		</repository>
+	</repositories>
+	
 	<dependencies>
 		<dependency>
 			<groupId>de.hshannover.f4.trust</groupId>
 			<artifactId>irongpm</artifactId>
-			<version>0.2.0</version>
+			<version>0.3.1</version>
 		</dependency>
         <dependency>
 			<groupId>log4j</groupId>
