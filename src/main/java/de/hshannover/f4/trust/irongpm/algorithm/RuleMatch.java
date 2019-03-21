@@ -90,4 +90,18 @@ public class RuleMatch {
 	public Map<String, String> getNamedProperties() {
 		return mNamedProperties;
 	}
+	
+	@Override
+	public int hashCode() {
+		return mResultGraph.hashCode();
+	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if(!(obj instanceof RuleMatch)) {
+			return false;
+		}
+		RuleMatch other = (RuleMatch) obj;
+		return mResultGraph.equals(other.getResultGraph());
+	}
 }

@@ -139,6 +139,7 @@ public class BasicMatchingAlgorithm implements GraphListener<IfmapVertex, IfmapE
 
 	private void matchRule(IfmapGraphImpl graph, PatternRule rule) {
 		Set<RuleMatch> resultSet = new RuleComparison(rule, graph).getResult();
+		LOGGER.debug("Found " + resultSet.size() + " matches!");
 		for (RuleMatch r : resultSet) {
 			int matchedHash = r.getResultGraph().hashCode();
 			synchronized (this) {
@@ -149,6 +150,8 @@ public class BasicMatchingAlgorithm implements GraphListener<IfmapVertex, IfmapE
 					for (RuleAction action : rule.getActions()) {
 						action.performAction(rule, r);
 					}
+				} else {
+					LOGGER.debug("Rule " + rule.getId() + " matched, but already fired...");
 				}
 			}
 		}

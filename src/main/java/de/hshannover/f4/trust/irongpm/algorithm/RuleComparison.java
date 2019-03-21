@@ -43,6 +43,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.log4j.Logger;
+
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternEdge;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternGraph;
 import de.hshannover.f4.trust.irongpm.algorithm.interfaces.PatternMetadata;
@@ -64,6 +66,8 @@ import de.hshannover.f4.trust.irongpm.ifmap.interfaces.Metadata;
  */
 public class RuleComparison {
 
+	private static final Logger LOGGER = Logger.getLogger(RuleComparison.class);
+	
 	private PatternRule mRule;
 	private PatternGraph mPatternGraph;
 	private IfmapGraph mRealGraph;
@@ -115,7 +119,8 @@ public class RuleComparison {
 
 	private void traversePattern(PatternVertex currentPatternVertex, IfmapVertex currentRealVertex, PatternGraph pattern) {
 		boolean incomplete = false;
-
+		LOGGER.trace("Current real vertex: " + currentRealVertex);
+		LOGGER.trace("Edges of real vertex: " + mRealGraph.edgesOf(currentRealVertex));
 		for (PatternEdge patternEdge : pattern.edgesOf(currentPatternVertex)) {
 			if (!patternEdge.isMatched()) {
 				incomplete = true;
@@ -157,11 +162,11 @@ public class RuleComparison {
 							}
 						} else {
 							// else check the equality of the edge target
-							if (ComparatorUtil.compare(patternTarget, realTarget, pattern.getRelationTable())) {
+							PatternGraph patternCopy = pattern.copy();
+							if (ComparatorUtil.compare(patternTarget, realTarget, patternCopy.getRelationTable())) {
 								// Copy pattern and vertices and assign
 								// matches
 								// and traverse algorithm
-								PatternGraph patternCopy = pattern.copy();
 								PatternVertex currentVertexInCopy = findVertexInGraph(patternCopy, currentPatternVertex);
 								PatternVertex targetVertexInCopy = findVertexInGraph(patternCopy, patternTarget);
 
@@ -179,14 +184,14 @@ public class RuleComparison {
 						}
 					}
 				}
-				break;
 			}
 		}
 		if (incomplete) {
 			return;
 		}
 		if (pattern.isCompletelyMatched()) {
-			mResult.add(convertAndPrepareResult(pattern));
+			boolean success = mResult.add(convertAndPrepareResult(pattern));
+			LOGGER.debug("Pattern completely matched, Adding result. Success? " + success);
 			return;
 		}
 		for (PatternVertex patternVertex : pattern.vertexSet()) {
