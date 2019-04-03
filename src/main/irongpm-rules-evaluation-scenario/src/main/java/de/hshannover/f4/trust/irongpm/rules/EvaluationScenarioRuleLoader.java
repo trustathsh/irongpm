@@ -73,7 +73,7 @@ public class EvaluationScenarioRuleLoader implements RuleLoader {
 
 //		//Prepare Rules and add them to the ruleSet
 		result.add(prepareRule1());
-		result.add(prepareRule2());
+//		result.add(prepareRule2());
 		result.add(prepareRule3());
 
 		//Eventually return all "loaded" rules
@@ -247,7 +247,8 @@ public class EvaluationScenarioRuleLoader implements RuleLoader {
 
 		BasicPatternRule rule3 = new BasicPatternRule(
 				graph,
-				"Rule 3",
+//				"Rule 3",
+				"Rule 2",
 				"attack-detected on service",
 				"Check if $serviceName$ was affected by the attack and examine quarantined attacker from $attackerIp$ !");
 				
