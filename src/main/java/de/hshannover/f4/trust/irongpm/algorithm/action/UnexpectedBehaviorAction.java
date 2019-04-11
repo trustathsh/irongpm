@@ -91,8 +91,9 @@ public class UnexpectedBehaviorAction extends PublishAction {
 						+ " to an ifmapj Identifier failed. Check above for other log entries.");
 				return;
 			}
+			String description = "Rule #" + rule.getId() + ": " + rule.getDescription();
 			Document updateUnexpectedBehavior = mMf.createUnexpectedBehavior(result.getResultGraph().getLastUpdated()
-					.toString(), "GPM", 100, 100, Significance.critical, rule.getDescription());
+					.toString(), "GPM", 100, 100, Significance.critical, description);
 
 			PublishRequest update = Requests.createPublishReq();
 			update.addPublishElement(Requests.createPublishUpdate(id, updateUnexpectedBehavior));
