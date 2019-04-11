@@ -2,7 +2,7 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
 	<modelVersion>4.0.0</modelVersion>
-	<inceptionYear>2018</inceptionYear>
+	<inceptionYear>2019</inceptionYear>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -12,7 +12,7 @@
 	<artifactId>irongpm-rules-evaluation-scenario</artifactId>
 	<version>0.0.1</version>
 	<packaging>jar</packaging>
-	<name>irongpm-rules</name>
+	<name>irongpm-rules-evaluation-scenario</name>
 	<url>http://trust.f4.hs-hannover.de</url>
 	<description>
 
